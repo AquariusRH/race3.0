@@ -631,8 +631,6 @@ def top(method_odds_df, method_investment_df, method):
 
 def print_top():
     for method in ['QIN',"TRI",'WIN','PLA']:
-        methodCHlist[methodlist.index(method)]
-        top(odds_dict[method], investment_dict[method], method)
         if odds[method]:
           methodCHlist[methodlist.index(method)]
           top(odds_dict[method], investment_dict[method], method)
