@@ -342,7 +342,6 @@ def print_bar_chart(time_now, iteration_counter=0):
                                 columns=change_data.index, index=[df.index[-1]])
 
         # 準備賠率數據
-        odds_data = pd.DataFrame()
         if method in ['WIN', 'PLA']:
             odds_list.index = pd.to_datetime(odds_list.index)
             odds_1st = odds_list[odds_list.index < time_25_minutes_before].tail(1)
@@ -353,11 +352,11 @@ def print_bar_chart(time_now, iteration_counter=0):
         if not df_1st.empty:
             data_df = df_1st
             if not df_2nd.empty:
-                data_df = data_df._append(df_2nd)
+                data_df = data_df.append(df_2nd)
         elif not df_1st_2nd.empty:
             data_df = df_1st_2nd
             if not df_2nd.empty and not df_2nd.equals(df_1st_2nd):
-                data_df = data_df._append(df_2nd)
+                data_df = data_df.append(df_2nd)
 
         if data_df.empty:
             continue
@@ -373,20 +372,18 @@ def print_bar_chart(time_now, iteration_counter=0):
         formatted_namelist = [label.split('.')[0] + '.\n' + '\n'.join(label.split('.')[1]) for label in namelist_sort]
 
         # 準備 Altair 數據
-        # 將數據轉為長格式 (long-form) 以符合 Altair 要求
         plot_data = []
         if not df_2nd.empty:
             for horse, value in zip(formatted_namelist, sorted_final_data_df.iloc[-1]):
-                plot_data.append({'馬匹': horse, 'Value': value, 'Type': '25分鐘'})
+                plot_data.append({'馬匹': horse, 'Value': float(value) if pd.notnull(value) else 0, 'Type': '25分鐘'})
         elif not df_1st.empty:
             for horse, value in zip(formatted_namelist, sorted_final_data_df.iloc[0]):
-                plot_data.append({'馬匹': horse, 'Value': value, 'Type': '投注額'})
+                plot_data.append({'馬匹': horse, 'Value': float(value) if pd.notnull(value) else 0, 'Type': '投注額'})
         
         for horse, value in zip(formatted_namelist, sorted_change_df.iloc[0]):
-            plot_data.append({'馬匹': horse, 'Value': value, 'Type': '改變'})
+            plot_data.append({'馬匹': horse, 'Value': float(value) if pd.notnull(value) else 0, 'Type': '改變'})
 
         # 包含賠率數據（僅限 WIN 和 PLA）
-
         if method in ['WIN', 'PLA']:
             if not df_2nd.empty and not odds_2nd.empty:
                 sorted_odds_list = odds_2nd[X].iloc[0]
@@ -398,10 +395,12 @@ def print_bar_chart(time_now, iteration_counter=0):
                 for horse, odds in zip(formatted_namelist, sorted_odds_list):
                     for row in plot_data:
                         if row['馬匹'] == horse and row['Type'] in ['25分鐘', '投注額']:
-                            row['Odds'] = f"{odds:.1f}"
-        
-        # 創建 DataFrame
+                            row['Odds'] = f"{float(odds):.1f}" if pd.notnull(odds) else 'N/A'
+
+        # 創建 DataFrame 並清理數據
         plot_df = pd.DataFrame(plot_data)
+        plot_df['Value'] = plot_df['Value'].fillna(0).astype(float)  # 確保 Value 是數值型
+        plot_df['Odds'] = plot_df.get('Odds', 'N/A')  # 確保 Odds 列存在
 
         # Altair 柱狀圖
         bar_color = 'red' if not df_3rd.empty else 'blue'
@@ -413,15 +412,17 @@ def print_bar_chart(time_now, iteration_counter=0):
 
         # 創建柱狀圖
         chart = alt.Chart(plot_df).mark_bar().encode(
-            x=alt.X('馬匹:N', sort=formatted_namelist, title='馬匹'),  # 使用格式化的馬匹名稱並按降序排序
+            x=alt.X('馬匹:N', 
+                    sort=alt.SortField(field='Value', order='descending'),  # 按 Value 降序排序
+                    title='馬匹'),
             y=alt.Y('Value:Q', title='投注額'),
             color=alt.Color('Type:N', scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values()))),
-            xOffset=alt.XOffset('Type:N', scale=alt.Scale(range=[-20, 20])),  # 設置柱子偏移以實現分組
+            xOffset=alt.XOffset('Type:N'),  # 使用 xOffset 實現分組柱狀圖
             tooltip=[
                 alt.Tooltip('馬匹:N', title='馬匹'),
                 alt.Tooltip('Value:Q', title='投注額', format='.2f'),
                 alt.Tooltip('Type:N', title='類型'),
-                alt.Tooltip('Odds:N', title='賠率', condition=alt.condition("datum.Odds != null", alt.value(True), alt.value(False)))
+                alt.Tooltip('Odds:N', title='賠率')
             ]
         ).properties(
             title={
@@ -447,7 +448,6 @@ def print_bar_chart(time_now, iteration_counter=0):
         # 使用唯一 key 避免 DuplicateElementId 錯誤
         chart_key = f"altair_chart_{method}_{time_now.strftime('%Y%m%d_%H%M%S')}_{iteration_counter}"
         st.altair_chart(chart, use_container_width=True, key=chart_key)
-
 def weird_data(investments):
 
   for method in methodlist:
