@@ -7,3 +7,4 @@ aiohttp
 nest_asyncio
 bs4
 plotly
+altair
