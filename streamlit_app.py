@@ -325,7 +325,7 @@ def print_bar_chart(time_now, iteration_counter=0):
         # 初始化數據
         df = overall_investment_dict[method] if method == 'overall' else overall_investment_dict[method]
         change_data = diff_dict[method].iloc[-1] if method == 'overall' else diff_dict[method].tail(10).sum(axis=0)
-        oddskernel = odds_dict[method] if method in ['WIN', 'PLA'] else pd.DataFrame()
+        odds_list = odds_dict[method] if method in ['WIN', 'PLA'] else pd.DataFrame()
 
         if df.empty:
             continue
