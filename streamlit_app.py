@@ -152,6 +152,7 @@ def get_odds_data():
   if response.status_code == 200:
       odds_data = response.json()
           # Extracting the oddsValue into different types of oddsType and sorting by combString for QIN and QPL
+      # Initialize odds_values with empty lists for each odds type
       odds_values = {
           "WIN": [],
           "PLA": [],
@@ -161,42 +162,48 @@ def get_odds_data():
           "TRI": [],
           "FF": []
       }
-
+      
       race_meetings = odds_data.get('data', {}).get('raceMeetings', [])
       for meeting in race_meetings:
           pm_pools = meeting.get('pmPools', [])
           for pool in pm_pools:
-              if place not in ['ST','HV']:
-                id = pool.get('id')
-                if id[8:10] != place:
-                  continue            
+              if place not in ['ST', 'HV']:
+                  id = pool.get('id')
+                  if id and id[8:10] != place:  # Check if id exists before slicing
+                      continue
               odds_nodes = pool.get('oddsNodes', [])
               odds_type = pool.get('oddsType')
+              odds_values[odds_type] = []
+              # Skip if odds_type is invalid or not in odds_values
+              if not odds_type or odds_type not in odds_values:
+                  continue
               for node in odds_nodes:
                   oddsValue = node.get('oddsValue')
+                  # Skip iteration if oddsValue is None, empty, or '---'
                   if oddsValue == 'SCR':
-                    oddsValue = np.inf
+                      oddsValue = np.inf
                   else:
-                    oddsValue = float(oddsValue)
-
-                  if odds_type in ["QIN", "QPL","FCT","TRI","FF"]:
-                      odds_values[odds_type].append((node.get('combString'), oddsValue))
+                      try:
+                          oddsValue = float(oddsValue)
+                      except (ValueError, TypeError):
+                          continue  # Skip if oddsValue can't be converted to float
+                  # Store data based on odds_type
+                  if odds_type in ["QIN", "QPL", "FCT", "TRI", "FF"]:
+                      comb_string = node.get('combString')
+                      if comb_string:  # Ensure combString exists
+                          odds_values[odds_type].append((comb_string, oddsValue))
                   else:
                       odds_values[odds_type].append(oddsValue)
-
-      # Sorting the QIN and QPL odds values by combString in ascending order
-      odds_values["QIN"].sort(key=lambda x: x[0])
-      odds_values["QPL"].sort(key=lambda x: x[0])
-      odds_values["FCT"].sort(key=lambda x: x[0])
-      odds_values["TRI"].sort(key=lambda x: x[0])
-      odds_values["FF"].sort(key=lambda x: x[0])
+      # Sorting the odds values for specific types by combString in ascending order
+      for odds_type in ["QIN", "QPL", "FCT", "TRI", "FF"]:
+          odds_values[odds_type].sort(key=lambda x: x[0], reverse=False)
+      return odds_values
 
       #print("WIN Odds Values:", odds_values["WIN"])
       #print("PLA Odds Values:", odds_values["PLA"])
       #print("QIN Odds Values (sorted by combString):", [value for _, value in odds_values["QIN"]])
       #print("QPL Odds Values (sorted by combString):", [value for _, value in odds_values["QPL"]])
 
-      return odds_values
   else:
       print(f"Error: {response.status_code}")
 
@@ -210,10 +217,11 @@ def save_odds_data(time_now,odds):
       elif method in ['QIN','QPL',"FCT","TRI","FF"]:
         if odds[method]:
           combination, odds_array = zip(*odds[method])
-        if odds_dict[method].empty:
-          odds_dict[method] = pd.DataFrame(columns=combination)
-          # Set the values with the specified index
-        odds_dict[method].loc[time_now] = odds_array
+          if odds_dict[method].empty:
+            odds_dict[method] = pd.DataFrame(columns=combination)
+            # Set the values with the specified index
+          odds_dict[method].loc[time_now] = odds_array
+  #st.write(odds_dict)
 
 def save_investment_data(time_now,investment,odds):
   for method in methodlist:
@@ -226,12 +234,12 @@ def save_investment_data(time_now,investment,odds):
       elif method in ['QIN','QPL',"FCT","TRI","FF"]:
         if odds[method]:
           combination, odds_array = zip(*odds[method])
-        if investment_dict[method].empty:
-          investment_dict[method] = pd.DataFrame(columns=combination)
-        investment_df = [round(investments[method][0] * 0.825 / 1000 / odd, 2) for odd in odds_array]
-          # Set the values with the specified index
-        investment_dict[method].loc[time_now] = investment_df
-
+          if investment_dict[method].empty:
+            investment_dict[method] = pd.DataFrame(columns=combination)
+          investment_df = [round(investments[method][0] * 0.825 / 1000 / odd, 2) for odd in odds_array]
+              # Set the values with the specified index
+          investment_dict[method].loc[time_now] = investment_df
+  #st.write(investment_dict)
 def print_data(time_now,period):
   for watch in watchlist:
     data = odds_dict[watch].tail(period)
@@ -280,7 +288,10 @@ def get_overall_investment(time_now,dict):
       if method in ['WIN','PLA']:
         overall_investment_dict[method] = overall_investment_dict[method]._append(investment_dict[method].tail(1))
       elif method in ['QIN','QPL']:
-        overall_investment_dict[method] = overall_investment_dict[method]._append(investment_combined(time_now,method,investment_dict[method].tail(1)))
+        if not investment_df[method].empty:
+          overall_investment_dict[method] = overall_investment_dict[method]._append(investment_combined(time_now,method,investment_dict[method].tail(1)))
+        else:
+          continue
 
     for horse in range(1,no_of_horse+1):
         total_investment = 0
@@ -288,7 +299,10 @@ def get_overall_investment(time_now,dict):
             if method in ['WIN', 'PLA']:
                 investment = overall_investment_dict[method][horse].values[-1]
             elif method in ['QIN','QPL']:
+              if not investment_df[method].empty: 
                 investment = overall_investment_dict[method][horse].values[-1]
+              else:
+                continue
             total_investment += investment
         total_investment_df[horse] = total_investment
     overall_investment_dict['overall'] = overall_investment_dict['overall']._append(total_investment_df)
@@ -297,24 +311,20 @@ def print_bar_chart(time_now):
   post_time = post_time_dict[race_no]
   time_25_minutes_before = np.datetime64(post_time - timedelta(minutes=25) + timedelta(hours=8))
   time_5_minutes_before = np.datetime64(post_time - timedelta(minutes=5) + timedelta(hours=8))
-
+  
   for method in print_list:
-      fig, ax1 = plt.subplots(figsize=(12, 6))
       odds_list = pd.DataFrame()
+      df = pd.DataFrame()
       if method == 'overall':
           df = overall_investment_dict[method]
           change_data = diff_dict[method].iloc[-1]
-      elif method == 'qin_qpl':
-          df = overall_investment_dict['QIN'] + overall_investment_dict['QPL']
-          change_data = (diff_dict['QIN'].tail(10).sum(axis = 0) + diff_dict['QPL'].tail(10).sum(axis = 0))*2
-      elif method == 'qin':
-          df = overall_investment_dict['QIN']
-          change_data = diff_dict['QIN'].tail(10).sum(axis = 0)
-      elif method in ['WIN', 'PLA']:
+      elif method in methodlist:
           df = overall_investment_dict[method]
-          odds_list = odds_dict[method]
           change_data = diff_dict[method].tail(10).sum(axis = 0)
-
+          odds_list = odds_dict[method]
+      if df.empty:
+        continue
+      fig, ax1 = plt.subplots(figsize=(12, 6))
       df.index = pd.to_datetime(df.index)
       df_1st = pd.DataFrame()
       df_1st_2nd = pd.DataFrame()
@@ -325,7 +335,7 @@ def print_bar_chart(time_now):
       df_2nd = df[df.index >= time_25_minutes_before].tail(1)
       df_3rd = df[df.index>= time_5_minutes_before].tail(1)
 
-      change_df = pd.DataFrame([change_data.apply(lambda x: x*4 if x > 0 else x*2)],columns=change_data.index,index =[df.index[-1]])
+      change_df = pd.DataFrame([change_data.apply(lambda x: x*6 if x > 0 else x*3)],columns=change_data.index,index =[df.index[-1]])
       print(change_df)
       if method in ['WIN', 'PLA']:
         odds_list.index = pd.to_datetime(odds_list.index)
@@ -406,10 +416,10 @@ def print_bar_chart(time_now):
 
       if method == 'overall':
           plt.title('綜合', fontsize=15)
-      elif method == 'qin_qpl':
-          plt.title('連贏 / 位置Q', fontsize=15)
-      elif method == 'qin':
+      elif method == 'QIN':
           plt.title('連贏', fontsize=15)
+      elif method == 'QPL':
+          plt.title('位置Q', fontsize=15)
       elif method == 'WIN':
           plt.title('獨贏', fontsize=15)
       elif method == 'PLA':
@@ -417,10 +427,10 @@ def print_bar_chart(time_now):
       st.pyplot(fig)
 
 def weird_data(investments):
-  target_list = methodlist[0:4]
-  if 'QPL' not in target_list:
-      target_list = methodlist[0:3]
-  for method in target_list:
+
+  for method in methodlist:
+    if investment_dict[method].empty:
+      continue
     latest_investment = investment_dict[method].tail(1).values
     last_time_odds = odds_dict[method].tail(2).head(1)
     expected_investment = investments[method][0]*0.825 / 1000 / last_time_odds
@@ -429,22 +439,22 @@ def weird_data(investments):
         diff_dict[method] = diff_dict[method]._append(diff)
     elif method in ['QIN','QPL']:
         diff_dict[method] = diff_dict[method]._append(investment_combined(time_now,method,diff))
-    benchmark = benchmark_dict.get(method)
-    diff.index = diff.index.strftime('%H:%M:%S')
-    for index in investment_dict[method].tail(1).columns:
-      error = diff[index].values[0]
-      error_df = []
-      if error > benchmark:
-        if error < benchmark * 2 :
-          highlight = '-'
-        elif error < benchmark * 3 :
-          highlight = '*'
-        elif error < benchmark * 4 :
-          highlight = '**'
-        else:
-          highlight = '***'
-        error_df = pd.DataFrame([[index,error,odds_dict[method].tail(1)[index].values,highlight]], columns=['No.', 'error','odds', 'Highlight'],index = diff.index)
-      weird_dict[method] = weird_dict[method]._append(error_df)
+    #benchmark = benchmark_dict.get(method)
+    #diff.index = diff.index.strftime('%H:%M:%S')
+    #for index in investment_dict[method].tail(1).columns:
+      #error = diff[index].values[0]
+      #error_df = []
+      #if error > benchmark:
+        #if error < benchmark * 2 :
+         # highlight = '-'
+        #elif error < benchmark * 3 :
+        #  highlight = '*'
+       # elif error < benchmark * 4 :
+        #  highlight = '**'
+        #else:
+        #  highlight = '***'
+        #error_df = pd.DataFrame([[index,error,odds_dict[method].tail(1)[index].values,highlight]], columns=['No.', 'error','odds', 'Highlight'],index = diff.index)
+      #weird_dict[method] = weird_dict[method]._append(error_df)
 
 def change_overall(time_now):
   if 'QPL' in methodlist[0:4]:
@@ -598,7 +608,7 @@ def top(method_odds_df, method_investment_df, method):
           target_special_df['最初排名'].astype(str).str.contains('\+') |
           target_special_df['上一次排名'].astype(str).str.contains('\+')
       ][['組合', '賠率', '最初排名', '上一次排名']]
-
+    
 
       # Apply the conditional formatting to the 初始排名 and 前一排名 columns and add a bar to the 投資變化 column
       styled_df = target_df.style.format({
@@ -613,15 +623,17 @@ def top(method_odds_df, method_investment_df, method):
       # Display the styled DataFrame
       st.write(styled_df.to_html(), unsafe_allow_html=True)
 
-      if method in ["QIN","FCT","TRI","FF"]:
+      if method in ["QIN","QPL","FCT","TRI","FF"]:
         if method in ["QIN"]:
           notice_df = final_df[(final_df['一分鐘投注'] >= 100) | (final_df['五分鐘投注'] >= 500)][['組合', '賠率', '一分鐘投注', '五分鐘投注']]
+        elif method in ["QPL"]:
+          notice_df = final_df[(final_df['一分鐘投注'] >= 200) | (final_df['五分鐘投注'] >= 700)][['組合', '賠率', '一分鐘投注', '五分鐘投注']]
         elif method in ["FCT"]:
           notice_df = final_df[(final_df['一分鐘投注'] >= 10) | (final_df['五分鐘投注'] >= 30)][['組合', '賠率', '一分鐘投注', '五分鐘投注']]
         else:
           notice_df = final_df[(final_df['一分鐘投注'] >= 5) | (final_df['五分鐘投注'] >= 15)][['組合', '賠率', '一分鐘投注', '五分鐘投注']]
         styled_notice_df = notice_df.style.format({'賠率': '{:.1f}','一分鐘投注': '{:.2f}k','五分鐘投注': '{:.2f}k'}).bar(subset=['一分鐘投注','五分鐘投注'], color='rgba(173, 216, 230, 0.5)').hide(axis='index')
-
+        
 
       col1, col2 = st.columns(2)
       with col1:
@@ -630,7 +642,7 @@ def top(method_odds_df, method_investment_df, method):
         st.write(styled_notice_df.to_html(), unsafe_allow_html=True)
 
 def print_top():
-    for method in ['QIN',"TRI",'WIN','PLA']:
+    for method in ['QIN',"QPL","TRI",'WIN','PLA']:
         if odds[method]:
           methodCHlist[methodlist.index(method)]
           top(odds_dict[method], investment_dict[method], method)
@@ -682,59 +694,59 @@ with infoColumns[2]:
     race_options = np.arange(1, 12)
     race_no = st.selectbox('場次:', race_options)
 
-
-benchmark_win = 10
-benchmark_pla = 100
-benchmark_qin = 50
-benchmark_qpl = 100
-
-
-# Display the checkbox for 沒有位置Q
-checkbox_no_qpl = st.checkbox('沒有位置Q', value=False)
-
-# Initialize variables
-race_no_value = None
-watchlist = ['WIN','PLA']
-
-list2 = ['WIN','PLA','QIN','QPL',"FCT","TRI","FF"]
-list1 = ['WIN','PLA','QIN',"TRI"]
-
-list2_ch = ['獨贏','位置','連贏','位置Q','二重彩','單T','四連環']
-list1_ch = ['獨贏','位置','連贏','單T']
-
-print_list_2 = ['qin_qpl', 'PLA','WIN']
-print_list_1 = ['qin', 'PLA','WIN']
-
-methodlist = list1
-methodCHlist = list1_ch
-print_list = print_list_1
-
-# Switch lists based on 沒有位置Q checkbox
-if checkbox_no_qpl:
-    methodlist = list2
-    methodCHlist = list2_ch
-    print_list = print_list_2
-else:
-    methodlist = list1
-    methodCHlist = list1_ch
-    print_list = print_list_1
-
-# Save changes to race_no
-race_no_value = race_no
-
-benchmark_dict = {
-      "WIN": benchmark_win,
-      "PLA": benchmark_pla,
-      "QIN": benchmark_qin,
-      "QPL": benchmark_qpl
-  }
-
+# Initialize lists (using list2 and list2_ch as default; change to list1 and list1_ch if preferred)
+available_methods = ['WIN', 'PLA', 'QIN', 'QPL', 'FCT', 'TRI', 'FF']
+available_methods_ch = ['獨贏', '位置', '連贏', '位置Q', '二重彩', '單T', '四連環']
+print_list_default = ['PLA','QPL','QIN', 'WIN']
+default_checked_methods = ['WIN', 'PLA', 'QIN', 'QPL']
+# Initialize session state variables
 if 'reset' not in st.session_state:
     st.session_state.reset = False
 if 'api_called' not in st.session_state:
     st.session_state.api_called = False
+
+# Create individual checkboxes for each betting method
+st.write("選擇投注方式 (Select Betting Methods):")
+num_methods = len(available_methods)
+method_columns = st.columns(num_methods)  # Create one column per method
+selected_methods = []
+for idx, (method, method_ch) in enumerate(zip(available_methods, available_methods_ch)):
+  with method_columns[idx]:
+    is_default_checked = method in default_checked_methods
+    if st.checkbox(method_ch, value=is_default_checked, key=method):
+        selected_methods.append(method)
+# Update methodlist and methodCHlist based on selections
+methodlist = selected_methods
+methodCHlist = [available_methods_ch[available_methods.index(method)] for method in selected_methods]
+
+# Update print_list based on selections (only include selected methods that are in the default print_list)
+print_list = [item for item in print_list_default if item in selected_methods or item == 'qin_qpl']
+
+# Save changes to race_no (assuming race_no is defined elsewhere)
+race_no_value = race_no if 'race_no' in globals() else None
+
+# Example benchmark dictionary (assuming these variables are defined elsewhere)
+benchmark_dict = {
+    "WIN": benchmark_win if 'benchmark_win' in globals() else None,
+    "PLA": benchmark_pla if 'benchmark_pla' in globals() else None,
+    "QIN": benchmark_qin if 'benchmark_qin' in globals() else None,
+    "QPL": benchmark_qpl if 'benchmark_qpl' in globals() else None
+}
+
+# Define the button callback
 def click_start_button():
-    st.session_state.reset =  True
+    st.session_state.reset = True
+
+# Add a button to trigger an action
+if st.button("開始", on_click=click_start_button):
+    st.write(f"Selected methods: {methodlist}")
+    st.write(f"Chinese labels: {methodCHlist}")
+    st.write(f"Print list: {print_list}")
+
+# Display current state for debugging
+#st.write("Current methodlist:", methodlist)
+#st.write("Current methodCHlist:", methodCHlist)
+#st.write("Current print_list:", print_list)
 
 if not st.session_state.api_called:
   url = 'https://info.cld.hkjc.com/graphql/base/'
@@ -974,8 +986,7 @@ if not st.session_state.api_called:
       numbered_list = [f"{i+1}. {name}" for i, name in enumerate(race_dict[race_number]['馬名'])]
       numbered_dict[race_number] = numbered_list
       race_dataframes[race_number] = df
-
-st.button('開始', on_click=click_start_button)
+  
 top_container = st.container()
 # 定義單一的 placeholder
 placeholder = st.empty()
@@ -1001,17 +1012,19 @@ if st.session_state.reset:
     for method in methodlist:
         diff_dict.setdefault(method, pd.DataFrame())
     diff_dict.setdefault('overall', pd.DataFrame())
-
+    
 
     # 使用 post time 作為條件
     start_time = time.time()
-    end_time = start_time + 60*1000
+    end_time = start_time + 60*10000
     while time.time()<=end_time:  # 在 post time 前更新
         with placeholder.container():
             time_now = datetime.now() + datere.relativedelta(hours=8)
             odds = get_odds_data()
             investments = get_investment_data()
             period = 2
-
+            
             main(time_now, odds, investments, period)
             time.sleep(20)
+
+
