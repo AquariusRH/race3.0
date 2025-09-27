@@ -394,12 +394,12 @@ def print_bar_chart(time_now):
             title={'text': '綜合' if method == 'overall' else '連贏' if method == 'QIN' else '位置Q' if method == 'QPL' else '獨贏' if method == 'WIN' else '位置' if method == 'PLA' else method, 'y':0.9, 'x':0.5},
             barmode='group',
             showlegend=True,
-            width=800,  # Initial width
-            height=600  # Initial height
+            width=800,
+            height=600
         )
         
-        # Display in Streamlit
-        st.plotly_chart(fig, use_container_width=True)
+        # Use unique key for each chart
+        st.plotly_chart(fig, use_container_width=True, key=f"chart_{method}")
 
 def weird_data(investments):
 
