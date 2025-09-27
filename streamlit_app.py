@@ -425,7 +425,7 @@ def print_bar_chart(time_now):
       elif method == 'PLA':
           plt.title('位置', fontsize=15)
       st.pyplot(fig)
-
+st.set_page_config(layout="wide")
 def weird_data(investments):
 
   for method in methodlist:
