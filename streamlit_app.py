@@ -23,6 +23,7 @@ import nest_asyncio
 from bs4 import BeautifulSoup
 import re
 import plotly.graph_objects as go
+import altair as alt
 # Show the page title and description.
 st.set_page_config(page_title="Jockey Race")
 st.title("Jockey Race 賽馬程式")
@@ -308,12 +309,13 @@ def get_overall_investment(time_now,dict):
         total_investment_df[horse] = total_investment
     overall_investment_dict['overall'] = overall_investment_dict['overall']._append(total_investment_df)
 
-def print_bar_chart(time_now):
+def print_bar_chart(time_now, iteration_counter=0):
     """
-    使用 Plotly 繪製互動式柱狀圖，顯示賽馬投注額和改變量，按降序排序
+    使用 Altair 繪製互動式柱狀圖，顯示賽馬投注額和改變量，按降序排序
 
     參數:
         time_now: 當前時間 (datetime)
+        iteration_counter: 迭代計數器，用於生成唯一 key (默認為 0)
     """
     post_time = post_time_dict[race_no]
     time_25_minutes_before = np.datetime64(post_time - timedelta(minutes=25) + timedelta(hours=8))
@@ -323,7 +325,7 @@ def print_bar_chart(time_now):
         # 初始化數據
         df = overall_investment_dict[method] if method == 'overall' else overall_investment_dict[method]
         change_data = diff_dict[method].iloc[-1] if method == 'overall' else diff_dict[method].tail(10).sum(axis=0)
-        odds_list = odds_dict[method] if method in ['WIN', 'PLA'] else pd.DataFrame()
+        oddskernel = odds_dict[method] if method in ['WIN', 'PLA'] else pd.DataFrame()
 
         if df.empty:
             continue
@@ -370,40 +372,21 @@ def print_bar_chart(time_now):
         namelist_sort = [numbered_dict[race_no][int(i) - 1] for i in X]
         formatted_namelist = [label.split('.')[0] + '.\n' + '\n'.join(label.split('.')[1]) for label in namelist_sort]
 
-        # 創建 Plotly 柱狀圖
-        fig = go.Figure()
-
-        # 添加柱子（25分鐘數據或初始數據）
-        bar_color = 'red' if not df_3rd.empty else 'blue'
+        # 準備 Altair 數據
+        # 將數據轉為長格式 (long-form) 以符合 Altair 要求
+        plot_data = []
         if not df_2nd.empty:
-            fig.add_trace(go.Bar(
-                x=formatted_namelist,  # 使用格式化的馬匹名稱
-                y=sorted_final_data_df.iloc[-1],
-                name='25分鐘',
-                marker_color=bar_color,
-                width=0.4,
-                offset=-0.2
-            ))
+            for horse, value in zip(formatted_namelist, sorted_final_data_df.iloc[-1]):
+                plot_data.append({'馬匹': horse, 'Value': value, 'Type': '25分鐘'})
         elif not df_1st.empty:
-            fig.add_trace(go.Bar(
-                x=formatted_namelist,
-                y=sorted_final_data_df.iloc[0],
-                name='投注額',
-                marker_color='pink',
-                width=0.4
-            ))
+            for horse, value in zip(formatted_namelist, sorted_final_data_df.iloc[0]):
+                plot_data.append({'馬匹': horse, 'Value': value, 'Type': '投注額'})
+        
+        for horse, value in zip(formatted_namelist, sorted_change_df.iloc[0]):
+            plot_data.append({'馬匹': horse, 'Value': value, 'Type': '改變'})
 
-        # 添加改變量柱子
-        fig.add_trace(go.Bar(
-            x=formatted_namelist,
-            y=sorted_change_df.iloc[0],
-            name='改變',
-            marker_color='grey',
-            width=0.4,
-            offset=0.2
-        ))
+        # 包含賠率數據（僅限 WIN 和 PLA）
 
-        # 添加賠率標籤（僅限 WIN 和 PLA）
         if method in ['WIN', 'PLA']:
             if not df_2nd.empty and not odds_2nd.empty:
                 sorted_odds_list = odds_2nd[X].iloc[0]
@@ -411,51 +394,59 @@ def print_bar_chart(time_now):
                 sorted_odds_list = odds_1st[X].iloc[0]
             else:
                 sorted_odds_list = None
-
             if sorted_odds_list is not None:
-                for i, (label, y, odds) in enumerate(zip(formatted_namelist, sorted_final_data_df.iloc[-1], sorted_odds_list)):
-                    fig.add_annotation(
-                        x=label,
-                        y=y,
-                        text=f"{odds:.1f}",
-                        showarrow=False,
-                        yshift=10,
-                        font=dict(size=12)
-                    )
+                for horse, odds in zip(formatted_namelist, sorted_odds_list):
+                    for row in plot_data:
+                        if row['馬匹'] == horse and row['Type'] in ['25分鐘', '投注額']:
+                            row['Odds'] = f"{odds:.1f}"
+        
+        # 創建 DataFrame
+        plot_df = pd.DataFrame(plot_data)
 
-        # 更新圖表佈局
-        fig.update_layout(
-            title=dict(
-                text={
+        # Altair 柱狀圖
+        bar_color = 'red' if not df_3rd.empty else 'blue'
+        color_map = {
+            '25分鐘': bar_color,
+            '投注額': 'pink',
+            '改變': 'grey'
+        }
+
+        # 創建柱狀圖
+        chart = alt.Chart(plot_df).mark_bar().encode(
+            x=alt.X('馬匹:N', sort=formatted_namelist, title='馬匹'),  # 使用格式化的馬匹名稱並按降序排序
+            y=alt.Y('Value:Q', title='投注額'),
+            color=alt.Color('Type:N', scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values()))),
+            xOffset=alt.XOffset('Type:N', scale=alt.Scale(range=[-20, 20])),  # 設置柱子偏移以實現分組
+            tooltip=[
+                alt.Tooltip('馬匹:N', title='馬匹'),
+                alt.Tooltip('Value:Q', title='投注額', format='.2f'),
+                alt.Tooltip('Type:N', title='類型'),
+                alt.Tooltip('Odds:N', title='賠率', condition=alt.condition("datum.Odds != null", alt.value(True), alt.value(False)))
+            ]
+        ).properties(
+            title={
+                'text': {
                     'overall': '綜合',
                     'QIN': '連贏',
                     'QPL': '位置Q',
                     'WIN': '獨贏',
                     'PLA': '位置'
                 }.get(method, '圖表'),
-                font=dict(size=15)
-            ),
-            xaxis=dict(
-                title='馬匹',
-                tickvals=formatted_namelist,
-                ticktext=formatted_namelist,
-                tickfont=dict(size=12)
-            ),
-            yaxis=dict(
-                title='投注額',
-                gridcolor='lightgrey',
-                gridwidth=1,
-                zeroline=False
-            ),
-            barmode='group',
-            template='plotly_white',
-            showlegend=True,
-            hovermode='x unified',
-            margin=dict(t=50, b=100)  # 確保標籤有足夠空間
+                'fontSize': 15
+            },
+            width='container',
+            height=400
+        ).configure_axisY(
+            gridColor='lightgrey',
+            gridDash=[3, 3],
+            gridWidth=1
+        ).configure_axisX(
+            labelFontSize=12
         )
 
-        # 在 Streamlit 中顯示圖表
-        st.plotly_chart(fig, use_container_width=True)
+        # 使用唯一 key 避免 DuplicateElementId 錯誤
+        chart_key = f"altair_chart_{method}_{time_now.strftime('%Y%m%d_%H%M%S')}_{iteration_counter}"
+        st.altair_chart(chart, use_container_width=True, key=chart_key)
 
 def weird_data(investments):
 
