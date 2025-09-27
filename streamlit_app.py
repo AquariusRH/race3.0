@@ -309,7 +309,12 @@ def get_overall_investment(time_now,dict):
     overall_investment_dict['overall'] = overall_investment_dict['overall']._append(total_investment_df)
 
 def print_bar_chart(time_now):
+    """
+    使用 Plotly 繪製互動式柱狀圖，顯示賽馬投注額和改變量，按降序排序
 
+    參數:
+        time_now: 當前時間 (datetime)
+    """
     post_time = post_time_dict[race_no]
     time_25_minutes_before = np.datetime64(post_time - timedelta(minutes=25) + timedelta(hours=8))
     time_5_minutes_before = np.datetime64(post_time - timedelta(minutes=5) + timedelta(hours=8))
@@ -355,8 +360,9 @@ def print_bar_chart(time_now):
         if data_df.empty:
             continue
 
-        # 按第一行數據排序
-        sorted_final_data_df = data_df.sort_values(by=data_df.index[0], axis=1, ascending=False)
+        # 按最新數據（或第一行）降序排序
+        sort_key = data_df.index[-1] if len(data_df) > 1 else data_df.index[0]
+        sorted_final_data_df = data_df.sort_values(by=sort_key, axis=1, ascending=False)
         X = sorted_final_data_df.columns
         sorted_change_df = change_df[X]
 
@@ -371,7 +377,7 @@ def print_bar_chart(time_now):
         bar_color = 'red' if not df_3rd.empty else 'blue'
         if not df_2nd.empty:
             fig.add_trace(go.Bar(
-                x=X,
+                x=formatted_namelist,  # 使用格式化的馬匹名稱
                 y=sorted_final_data_df.iloc[-1],
                 name='25分鐘',
                 marker_color=bar_color,
@@ -380,7 +386,7 @@ def print_bar_chart(time_now):
             ))
         elif not df_1st.empty:
             fig.add_trace(go.Bar(
-                x=X,
+                x=formatted_namelist,
                 y=sorted_final_data_df.iloc[0],
                 name='投注額',
                 marker_color='pink',
@@ -389,7 +395,7 @@ def print_bar_chart(time_now):
 
         # 添加改變量柱子
         fig.add_trace(go.Bar(
-            x=X,
+            x=formatted_namelist,
             y=sorted_change_df.iloc[0],
             name='改變',
             marker_color='grey',
@@ -407,9 +413,9 @@ def print_bar_chart(time_now):
                 sorted_odds_list = None
 
             if sorted_odds_list is not None:
-                for i, (x, y, odds) in enumerate(zip(X, sorted_final_data_df.iloc[-1], sorted_odds_list)):
+                for i, (label, y, odds) in enumerate(zip(formatted_namelist, sorted_final_data_df.iloc[-1], sorted_odds_list)):
                     fig.add_annotation(
-                        x=x,
+                        x=label,
                         y=y,
                         text=f"{odds:.1f}",
                         showarrow=False,
@@ -431,7 +437,7 @@ def print_bar_chart(time_now):
             ),
             xaxis=dict(
                 title='馬匹',
-                tickvals=X,
+                tickvals=formatted_namelist,
                 ticktext=formatted_namelist,
                 tickfont=dict(size=12)
             ),
