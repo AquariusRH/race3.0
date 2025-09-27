@@ -990,7 +990,7 @@ if not st.session_state.api_called:
 top_container = st.container()
 # 定義單一的 placeholder
 placeholder = st.empty()
-
+st.set_page_config(layout="wide")
 if st.session_state.reset:
     with top_container:
       st.write(f"DataFrame for Race No: {race_no}")
