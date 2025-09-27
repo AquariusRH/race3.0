@@ -324,7 +324,7 @@ def print_bar_chart(time_now):
           odds_list = odds_dict[method]
       if df.empty:
         continue
-      fig, ax1 = plt.subplots(figsize=(12,8),dpi=100)
+      fig, ax1 = plt.subplots(figsize=(120,80),dpi=100)
       df.index = pd.to_datetime(df.index)
       df_1st = pd.DataFrame()
       df_1st_2nd = pd.DataFrame()
@@ -425,7 +425,7 @@ def print_bar_chart(time_now):
       elif method == 'PLA':
           plt.title('位置', fontsize=15)
       st.pyplot(fig)
-st.set_page_config(layout="wide")
+
 def weird_data(investments):
 
   for method in methodlist:
