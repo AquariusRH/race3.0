@@ -324,7 +324,7 @@ def print_bar_chart(time_now):
           odds_list = odds_dict[method]
       if df.empty:
         continue
-      fig, ax1 = plt.subplots(figsize=(120,80),dpi=100)
+      fig, ax1 = plt.subplots(figsize=(12,8),dpi=100)
       df.index = pd.to_datetime(df.index)
       df_1st = pd.DataFrame()
       df_1st_2nd = pd.DataFrame()
@@ -990,7 +990,7 @@ if not st.session_state.api_called:
 top_container = st.container()
 # 定義單一的 placeholder
 placeholder = st.empty()
-st.set_page_config(layout="wide")
+
 if st.session_state.reset:
     with top_container:
       st.write(f"DataFrame for Race No: {race_no}")
