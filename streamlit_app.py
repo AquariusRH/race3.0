@@ -324,7 +324,7 @@ def print_bar_chart(time_now):
           odds_list = odds_dict[method]
       if df.empty:
         continue
-      fig, ax1 = plt.subplots(figsize=(12, 6))
+      fig, ax1 = plt.subplots()
       df.index = pd.to_datetime(df.index)
       df_1st = pd.DataFrame()
       df_1st_2nd = pd.DataFrame()
