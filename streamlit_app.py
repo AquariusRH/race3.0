@@ -309,97 +309,147 @@ def get_overall_investment(time_now,dict):
     overall_investment_dict['overall'] = overall_investment_dict['overall']._append(total_investment_df)
 
 def print_bar_chart(time_now):
+
     post_time = post_time_dict[race_no]
     time_25_minutes_before = np.datetime64(post_time - timedelta(minutes=25) + timedelta(hours=8))
     time_5_minutes_before = np.datetime64(post_time - timedelta(minutes=5) + timedelta(hours=8))
- 
+
     for method in print_list:
-        odds_list = pd.DataFrame()
-        df = pd.DataFrame()
-        if method == 'overall':
-            df = overall_investment_dict[method]
-            change_data = diff_dict[method].iloc[-1]
-        elif method in methodlist:
-            df = overall_investment_dict[method]
-            change_data = diff_dict[method].tail(10).sum(axis=0)
-            odds_list = odds_dict[method]
+        # 初始化數據
+        df = overall_investment_dict[method] if method == 'overall' else overall_investment_dict[method]
+        change_data = diff_dict[method].iloc[-1] if method == 'overall' else diff_dict[method].tail(10).sum(axis=0)
+        odds_list = odds_dict[method] if method in ['WIN', 'PLA'] else pd.DataFrame()
+
         if df.empty:
             continue
-        
+
+        # 篩選不同時間段的數據
         df.index = pd.to_datetime(df.index)
         df_1st = df[df.index < time_25_minutes_before].tail(1)
         df_1st_2nd = df[df.index >= time_25_minutes_before].head(1)
         df_2nd = df[df.index >= time_25_minutes_before].tail(1)
         df_3rd = df[df.index >= time_5_minutes_before].tail(1)
+
+        # 準備改變量數據
         change_df = pd.DataFrame([change_data.apply(lambda x: x*6 if x > 0 else x*3)], 
                                 columns=change_data.index, index=[df.index[-1]])
-        
+
+        # 準備賠率數據
+        odds_data = pd.DataFrame()
         if method in ['WIN', 'PLA']:
             odds_list.index = pd.to_datetime(odds_list.index)
             odds_1st = odds_list[odds_list.index < time_25_minutes_before].tail(1)
             odds_2nd = odds_list[odds_list.index >= time_25_minutes_before].tail(1)
-        
-        # Prepare data for plotting
+
+        # 合併數據
+        data_df = pd.DataFrame()
         if not df_1st.empty:
-            data_df = df_1st._append(df_2nd)
+            data_df = df_1st
+            if not df_2nd.empty:
+                data_df = data_df._append(df_2nd)
         elif not df_1st_2nd.empty:
             data_df = df_1st_2nd
             if not df_2nd.empty and not df_2nd.equals(df_1st_2nd):
                 data_df = data_df._append(df_2nd)
-        else:
-            data_df = pd.DataFrame()
-        
-        final_data_df = data_df
-        sorted_final_data_df = final_data_df.sort_values(by=final_data_df.index[0], axis=1, ascending=False)
-        diff = sorted_final_data_df.diff().dropna()
-        diff[diff < 0] = 0
+
+        if data_df.empty:
+            continue
+
+        # 按第一行數據排序
+        sorted_final_data_df = data_df.sort_values(by=data_df.index[0], axis=1, ascending=False)
         X = sorted_final_data_df.columns
-        X_axis = np.arange(len(X))
         sorted_change_df = change_df[X]
-        
-        # Create Plotly figure
+
+        # 格式化 x 軸標籤（馬匹名稱）
+        namelist_sort = [numbered_dict[race_no][int(i) - 1] for i in X]
+        formatted_namelist = [label.split('.')[0] + '.\n' + '\n'.join(label.split('.')[1]) for label in namelist_sort]
+
+        # 創建 Plotly 柱狀圖
         fig = go.Figure()
-        bar_colour = 'blue' if df_3rd.empty else 'red'
-        
-        if not df_1st.empty:
-            if df_2nd.empty:
-                fig.add_trace(go.Bar(x=X_axis, y=sorted_final_data_df.iloc[0], name='投注額', marker_color='pink'))
-            else:
-                fig.add_trace(go.Bar(x=X_axis - 0.2, y=sorted_final_data_df.iloc[1], name='25分鐘', marker_color=bar_colour))
-                fig.add_trace(go.Bar(x=X_axis + 0.2, y=sorted_change_df.iloc[0], name='改變', marker_color='grey'))
-        else:
-            if df_2nd.equals(df_1st_2nd):
-                fig.add_trace(go.Bar(x=X_axis - 0.2, y=sorted_final_data_df.iloc[0], name='25分鐘', marker_color=bar_colour))
-            else:
-                fig.add_trace(go.Bar(x=X_axis - 0.2, y=sorted_final_data_df.iloc[1], name='25分鐘', marker_color=bar_colour))
-                fig.add_trace(go.Bar(x=X_axis + 0.2, y=sorted_change_df.iloc[0], name='改變', marker_color='grey'))
-        
-        # Add odds as text annotations if applicable
+
+        # 添加柱子（25分鐘數據或初始數據）
+        bar_color = 'red' if not df_3rd.empty else 'blue'
+        if not df_2nd.empty:
+            fig.add_trace(go.Bar(
+                x=X,
+                y=sorted_final_data_df.iloc[-1],
+                name='25分鐘',
+                marker_color=bar_color,
+                width=0.4,
+                offset=-0.2
+            ))
+        elif not df_1st.empty:
+            fig.add_trace(go.Bar(
+                x=X,
+                y=sorted_final_data_df.iloc[0],
+                name='投注額',
+                marker_color='pink',
+                width=0.4
+            ))
+
+        # 添加改變量柱子
+        fig.add_trace(go.Bar(
+            x=X,
+            y=sorted_change_df.iloc[0],
+            name='改變',
+            marker_color='grey',
+            width=0.4,
+            offset=0.2
+        ))
+
+        # 添加賠率標籤（僅限 WIN 和 PLA）
         if method in ['WIN', 'PLA']:
-            if not df_1st.empty and df_2nd.empty and odds_1st is not None:
-                sorted_odds_list_1st = odds_1st[X].iloc[0]
-                for i, (val, odds) in enumerate(zip(sorted_final_data_df.iloc[0], sorted_odds_list_1st)):
-                    fig.add_annotation(x=i, y=val, text=str(odds), showarrow=False, yshift=10)
-            elif not df_2nd.empty and odds_2nd is not None:
-                sorted_odds_list_2nd = odds_2nd[X].iloc[0]
-                for i, (val, odds) in enumerate(zip(sorted_final_data_df.iloc[1], sorted_odds_list_2nd)):
-                    fig.add_annotation(x=i - 0.2, y=val, text=str(odds), showarrow=False, yshift=10)
-        
-        # Customize layout
-        namelist_sort = [numbered_dict[race_no][i - 1] for i in X]
-        formatted_namelist = [label.split('.')[0] + '.' + '\n'.join(label.split('.')[1]) for label in namelist_sort]
+            if not df_2nd.empty and not odds_2nd.empty:
+                sorted_odds_list = odds_2nd[X].iloc[0]
+            elif not df_1st.empty and not odds_1st.empty:
+                sorted_odds_list = odds_1st[X].iloc[0]
+            else:
+                sorted_odds_list = None
+
+            if sorted_odds_list is not None:
+                for i, (x, y, odds) in enumerate(zip(X, sorted_final_data_df.iloc[-1], sorted_odds_list)):
+                    fig.add_annotation(
+                        x=x,
+                        y=y,
+                        text=f"{odds:.1f}",
+                        showarrow=False,
+                        yshift=10,
+                        font=dict(size=12)
+                    )
+
+        # 更新圖表佈局
         fig.update_layout(
-            xaxis=dict(tickmode='array', tickvals=X_axis, ticktext=formatted_namelist, tickangle=45),
-            yaxis_title='投注額',
-            title={'text': '綜合' if method == 'overall' else '連贏' if method == 'QIN' else '位置Q' if method == 'QPL' else '獨贏' if method == 'WIN' else '位置' if method == 'PLA' else method, 'y':0.9, 'x':0.5},
+            title=dict(
+                text={
+                    'overall': '綜合',
+                    'QIN': '連贏',
+                    'QPL': '位置Q',
+                    'WIN': '獨贏',
+                    'PLA': '位置'
+                }.get(method, '圖表'),
+                font=dict(size=15)
+            ),
+            xaxis=dict(
+                title='馬匹',
+                tickvals=X,
+                ticktext=formatted_namelist,
+                tickfont=dict(size=12)
+            ),
+            yaxis=dict(
+                title='投注額',
+                gridcolor='lightgrey',
+                gridwidth=1,
+                zeroline=False
+            ),
             barmode='group',
+            template='plotly_white',
             showlegend=True,
-            width=800,
-            height=600
+            hovermode='x unified',
+            margin=dict(t=50, b=100)  # 確保標籤有足夠空間
         )
-        
-        # Use unique key for each chart
-        st.plotly_chart(fig, use_container_width=True, key=f"chart_{method}")
+
+        # 在 Streamlit 中顯示圖表
+        st.plotly_chart(fig, use_container_width=True)
 
 def weird_data(investments):
 
