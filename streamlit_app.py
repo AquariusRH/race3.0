@@ -22,8 +22,6 @@ import aiohttp
 import nest_asyncio
 from bs4 import BeautifulSoup
 import re
-import plotly.graph_objects as go
-import altair as alt
 # Show the page title and description.
 st.set_page_config(page_title="Jockey Race")
 st.title("Jockey Race 賽馬程式")
@@ -309,145 +307,125 @@ def get_overall_investment(time_now,dict):
         total_investment_df[horse] = total_investment
     overall_investment_dict['overall'] = overall_investment_dict['overall']._append(total_investment_df)
 
-def print_bar_chart(time_now, iteration_counter=0):
-    """
-    使用 Altair 繪製互動式柱狀圖，顯示賽馬投注額和改變量，按降序排序
+def print_bar_chart(time_now):
+  post_time = post_time_dict[race_no]
+  time_25_minutes_before = np.datetime64(post_time - timedelta(minutes=25) + timedelta(hours=8))
+  time_5_minutes_before = np.datetime64(post_time - timedelta(minutes=5) + timedelta(hours=8))
+  
+  for method in print_list:
+      odds_list = pd.DataFrame()
+      df = pd.DataFrame()
+      if method == 'overall':
+          df = overall_investment_dict[method]
+          change_data = diff_dict[method].iloc[-1]
+      elif method in methodlist:
+          df = overall_investment_dict[method]
+          change_data = diff_dict[method].tail(10).sum(axis = 0)
+          odds_list = odds_dict[method]
+      if df.empty:
+        continue
+      fig, ax1 = plt.subplots(figsize=(12, 6))
+      df.index = pd.to_datetime(df.index)
+      df_1st = pd.DataFrame()
+      df_1st_2nd = pd.DataFrame()
+      df_2nd = pd.DataFrame()
+      #df_3rd = pd.DataFrame()
+      df_1st = df[df.index< time_25_minutes_before].tail(1)
+      df_1st_2nd = df[df.index >= time_25_minutes_before].head(1)
+      df_2nd = df[df.index >= time_25_minutes_before].tail(1)
+      df_3rd = df[df.index>= time_5_minutes_before].tail(1)
 
-    參數:
-        time_now: 當前時間 (datetime)
-        iteration_counter: 迭代計數器，用於生成唯一 key (默認為 0)
-    """
-    post_time = post_time_dict[race_no]
-    time_25_minutes_before = np.datetime64(post_time - timedelta(minutes=25) + timedelta(hours=8))
-    time_5_minutes_before = np.datetime64(post_time - timedelta(minutes=5) + timedelta(hours=8))
+      change_df = pd.DataFrame([change_data.apply(lambda x: x*6 if x > 0 else x*3)],columns=change_data.index,index =[df.index[-1]])
+      print(change_df)
+      if method in ['WIN', 'PLA']:
+        odds_list.index = pd.to_datetime(odds_list.index)
+        odds_1st = odds_list[odds_list.index< time_25_minutes_before].tail(1)
+        odds_2nd = odds_list[odds_list.index >= time_25_minutes_before].tail(1)
+        #odds_3rd = odds_list[odds_list.index>= time_5_minutes_before].tail(1)
 
-    for method in print_list:
-        # 初始化數據
-        df = overall_investment_dict[method] if method == 'overall' else overall_investment_dict[method]
-        change_data = diff_dict[method].iloc[-1] if method == 'overall' else diff_dict[method].tail(10).sum(axis=0)
-        odds_list = odds_dict[method] if method in ['WIN', 'PLA'] else pd.DataFrame()
-
-        if df.empty:
-            continue
-
-        # 篩選不同時間段的數據
-        df.index = pd.to_datetime(df.index)
-        df_1st = df[df.index < time_25_minutes_before].tail(1)
-        df_1st_2nd = df[df.index >= time_25_minutes_before].head(1)
-        df_2nd = df[df.index >= time_25_minutes_before].tail(1)
-        df_3rd = df[df.index >= time_5_minutes_before].tail(1)
-
-        # 準備改變量數據
-        change_df = pd.DataFrame([change_data.apply(lambda x: x*6 if x > 0 else x*3)], 
-                                columns=change_data.index, index=[df.index[-1]])
-
-        # 準備賠率數據
-        if method in ['WIN', 'PLA']:
-            odds_list.index = pd.to_datetime(odds_list.index)
-            odds_1st = odds_list[odds_list.index < time_25_minutes_before].tail(1)
-            odds_2nd = odds_list[odds_list.index >= time_25_minutes_before].tail(1)
-
-        # 合併數據
-        data_df = pd.DataFrame()
-        if not df_1st.empty:
-            data_df = df_1st
-            if not df_2nd.empty:
-                data_df = data_df.append(df_2nd)
-        elif not df_1st_2nd.empty:
-            data_df = df_1st_2nd
-            if not df_2nd.empty and not df_2nd.equals(df_1st_2nd):
-                data_df = data_df.append(df_2nd)
-
-        if data_df.empty:
-            continue
-
-        # 按最新數據（或第一行）降序排序
-        sort_key = data_df.index[-1] if len(data_df) > 1 else data_df.index[0]
-        sorted_final_data_df = data_df.sort_values(by=sort_key, axis=1, ascending=False)
-        X = sorted_final_data_df.columns
-        sorted_change_df = change_df[X]
-
-        # 格式化 x 軸標籤（馬匹名稱）
-        namelist_sort = [numbered_dict[race_no][int(i) - 1] for i in X]
-        formatted_namelist = [label.split('.')[0] + '.\n' + '\n'.join(label.split('.')[1]) for label in namelist_sort]
-
-        # 準備 Altair 數據
-        plot_data = []
-        if not df_2nd.empty:
-            for horse, value in zip(formatted_namelist, sorted_final_data_df.iloc[-1]):
-                plot_data.append({'馬匹': horse, 'Value': float(value) if pd.notnull(value) else 0, 'Type': '25分鐘'})
-        elif not df_1st.empty:
-            for horse, value in zip(formatted_namelist, sorted_final_data_df.iloc[0]):
-                plot_data.append({'馬匹': horse, 'Value': float(value) if pd.notnull(value) else 0, 'Type': '投注額'})
-        
-        for horse, value in zip(formatted_namelist, sorted_change_df.iloc[0]):
-            plot_data.append({'馬匹': horse, 'Value': float(value) if pd.notnull(value) else 0, 'Type': '改變'})
-
-        # 包含賠率數據（僅限 WIN 和 PLA）
-        if method in ['WIN', 'PLA']:
-            if not df_2nd.empty and not odds_2nd.empty:
-                sorted_odds_list = odds_2nd[X].iloc[0]
-            elif not df_1st.empty and not odds_1st.empty:
-                sorted_odds_list = odds_1st[X].iloc[0]
+      bars_1st = None
+      bars_2nd = None
+      #bars_3rd = None
+      # Initialize data_df
+      if not df_1st.empty:
+          data_df = df_1st
+          data_df = data_df._append(df_2nd)
+      elif not df_1st_2nd.empty:
+          data_df = df_1st_2nd
+          if not df_2nd.empty and not df_2nd.equals(df_1st_2nd):  # Avoid appending identical df_2nd
+              data_df = data_df._append(df_2nd)
+      else:
+          data_df = pd.DataFrame()  # Fallback if both are empty
+      #final_data_df = data_df._append(df_3rd)
+      final_data_df = data_df
+      sorted_final_data_df = final_data_df.sort_values(by=final_data_df.index[0], axis=1, ascending=False)
+      diff = sorted_final_data_df.diff().dropna()
+      diff[diff < 0] = 0
+      X = sorted_final_data_df.columns
+      X_axis = np.arange(len(X))
+      sorted_change_df = change_df[X]
+      if df_3rd.empty:
+                  bar_colour = 'blue'
+      else:
+                  bar_colour = 'red'
+      if not df_1st.empty:
+          if df_2nd.empty:
+                bars_1st = ax1.bar(X_axis, sorted_final_data_df.iloc[0], 0.4, label='投注額', color='pink')
+          else:
+                bars_2nd = ax1.bar(X_axis - 0.2, sorted_final_data_df.iloc[1], 0.4, label='25分鐘', color=bar_colour)
+                bar = ax1.bar(X_axis+0.2,sorted_change_df.iloc[0],0.4,label='改變',color='grey')
+                #if not df_3rd.empty:
+                    #bars_3rd = ax1.bar(X_axis, diff.iloc[0], 0.3, label='5分鐘', color='red')
+      else:
+            if df_2nd.equals(df_1st_2nd):
+              bars_2nd = ax1.bar(X_axis - 0.2, sorted_final_data_df.iloc[0], 0.4, label='25分鐘', color=bar_colour)
             else:
-                sorted_odds_list = None
-            if sorted_odds_list is not None:
-                for horse, odds in zip(formatted_namelist, sorted_odds_list):
-                    for row in plot_data:
-                        if row['馬匹'] == horse and row['Type'] in ['25分鐘', '投注額']:
-                            row['Odds'] = f"{float(odds):.1f}" if pd.notnull(odds) else 'N/A'
+                bars_2nd = ax1.bar(X_axis - 0.2, sorted_final_data_df.iloc[1], 0.4, label='25分鐘', color=bar_colour)
+                bar = ax1.bar(X_axis+0.2,sorted_change_df.iloc[0],0.4,label='改變',color='grey')
+                #if not df_3rd.empty:
+                    #bars_3rd = ax1.bar(X_axis, diff.iloc[0], 0.3, label='5分鐘', color='red')
+            #else:
+                #bars_3rd = ax1.bar(X_axis-0.2, sorted_final_data_df.iloc[0], 0.4, label='5分鐘', color='red')
+                #bar = ax1.bar(X_axis+0.2,sorted_change_df.iloc[0],0.4,label='改變',color='grey')
 
-        # 創建 DataFrame 並清理數據
-        plot_df = pd.DataFrame(plot_data)
-        plot_df['Value'] = plot_df['Value'].fillna(0).astype(float)  # 確保 Value 是數值型
-        plot_df['Odds'] = plot_df.get('Odds', 'N/A')  # 確保 Odds 列存在
+      # Add numbers above bars
+      if method in ['WIN', 'PLA']:
+        if bars_2nd is not None:
+          sorted_odds_list_2nd = odds_2nd[X].iloc[0]
+          for bar, odds in zip(bars_2nd, sorted_odds_list_2nd):
+              yval = bar.get_height()
+              ax1.text(bar.get_x() + bar.get_width() / 2, yval, odds, ha='center', va='bottom')
+        #if bars_3rd is not None:
+          #sorted_odds_list_3rd = odds_3rd[X].iloc[0]
+          #for bar, odds in zip(bars_3rd, sorted_odds_list_3rd):
+               # yval = bar.get_height()
+                #ax1.text(bar.get_x() + bar.get_width() / 2, yval, odds, ha='center', va='bottom')
+        elif bars_1st is not None:
+          sorted_odds_list_1st = odds_1st[X].iloc[0]
+          for bar, odds in zip(bars_1st, sorted_odds_list_1st):
+              yval = bar.get_height()
+              ax1.text(bar.get_x() + bar.get_width() / 2, yval, odds, ha='center', va='bottom')
 
-        # Altair 柱狀圖
-        bar_color = 'red' if not df_3rd.empty else 'blue'
-        color_map = {
-            '25分鐘': bar_color,
-            '投注額': 'pink',
-            '改變': 'grey'
-        }
+      namelist_sort = [numbered_dict[race_no][i - 1] for i in X]
+      formatted_namelist = [label.split('.')[0] + '.' + '\n'.join(label.split('.')[1]) for label in namelist_sort]
+      plt.xticks(X_axis, formatted_namelist, fontsize=12)
+      ax1.grid(color='lightgrey', axis='y', linestyle='--')
+      ax1.set_ylabel('投注額',fontsize=15)
+      ax1.tick_params(axis='y')
+      fig.legend()
 
-        # 創建柱狀圖
-        chart = alt.Chart(plot_df).mark_bar().encode(
-            x=alt.X('馬匹:N', 
-                    sort=alt.SortField(field='Value', order='descending'),  # 按 Value 降序排序
-                    title='馬匹'),
-            y=alt.Y('Value:Q', title='投注額'),
-            color=alt.Color('Type:N', scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values()))),
-            xOffset=alt.XOffset('Type:N'),  # 使用 xOffset 實現分組柱狀圖
-            tooltip=[
-                alt.Tooltip('馬匹:N', title='馬匹'),
-                alt.Tooltip('Value:Q', title='投注額', format='.2f'),
-                alt.Tooltip('Type:N', title='類型'),
-                alt.Tooltip('Odds:N', title='賠率')
-            ]
-        ).properties(
-            title={
-                'text': {
-                    'overall': '綜合',
-                    'QIN': '連贏',
-                    'QPL': '位置Q',
-                    'WIN': '獨贏',
-                    'PLA': '位置'
-                }.get(method, '圖表'),
-                'fontSize': 15
-            },
-            width='container',
-            height=400
-        ).configure_axisY(
-            gridColor='lightgrey',
-            gridDash=[3, 3],
-            gridWidth=1
-        ).configure_axisX(
-            labelFontSize=12
-        )
+      if method == 'overall':
+          plt.title('綜合', fontsize=15)
+      elif method == 'QIN':
+          plt.title('連贏', fontsize=15)
+      elif method == 'QPL':
+          plt.title('位置Q', fontsize=15)
+      elif method == 'WIN':
+          plt.title('獨贏', fontsize=15)
+      elif method == 'PLA':
+          plt.title('位置', fontsize=15)
+      st.pyplot(fig)
 
-        # 使用唯一 key 避免 DuplicateElementId 錯誤
-        chart_key = f"altair_chart_{method}_{time_now.strftime('%Y%m%d_%H%M%S')}_{iteration_counter}"
-        st.altair_chart(chart, use_container_width=True, key=chart_key)
 def weird_data(investments):
 
   for method in methodlist:
@@ -479,10 +457,9 @@ def weird_data(investments):
       #weird_dict[method] = weird_dict[method]._append(error_df)
 
 def change_overall(time_now):
-  if 'QPL' in methodlist[0:4]:
-    total_investment = diff_dict['WIN'].sum(axis=0)+diff_dict['PLA'].sum(axis=0)+diff_dict['QIN'].sum(axis=0)+diff_dict['QPL'].sum(axis=0)
-  else:
-    total_investment = diff_dict['WIN'].sum(axis=0)+diff_dict['PLA'].sum(axis=0)+diff_dict['QIN'].sum(axis=0)
+  total_investment = 0
+  for method in methodlist:
+    total_investment += diff_dict[method].sum(axis=0)
   total_investment_df = pd.DataFrame([total_investment],index = [time_now])
   diff_dict['overall'] = diff_dict['overall']._append(total_investment_df)
 
@@ -719,8 +696,8 @@ with infoColumns[2]:
 # Initialize lists (using list2 and list2_ch as default; change to list1 and list1_ch if preferred)
 available_methods = ['WIN', 'PLA', 'QIN', 'QPL', 'FCT', 'TRI', 'FF']
 available_methods_ch = ['獨贏', '位置', '連贏', '位置Q', '二重彩', '單T', '四連環']
-print_list_default = ['PLA','QPL','QIN', 'WIN']
-default_checked_methods = ['WIN', 'PLA', 'QIN', 'QPL']
+print_list_default = ['WIN','PLA','QIN','QPL']
+default_checked_methods = ['WIN','QIN']
 # Initialize session state variables
 if 'reset' not in st.session_state:
     st.session_state.reset = False
@@ -739,6 +716,7 @@ for idx, (method, method_ch) in enumerate(zip(available_methods, available_metho
         selected_methods.append(method)
 # Update methodlist and methodCHlist based on selections
 methodlist = selected_methods
+
 methodCHlist = [available_methods_ch[available_methods.index(method)] for method in selected_methods]
 
 # Update print_list based on selections (only include selected methods that are in the default print_list)
@@ -1047,6 +1025,6 @@ if st.session_state.reset:
             period = 2
             
             main(time_now, odds, investments, period)
-            time.sleep(20)
+            time.sleep(15)
 
 
