@@ -641,7 +641,7 @@ def top(method_odds_df, method_investment_df, method):
         st.write(styled_notice_df.to_html(), unsafe_allow_html=True)
 
 def print_top():
-    for method in ['QIN',"QPL","TRI",'WIN','PLA']:
+    for method in ['QIN']:
         if odds[method]:
           methodCHlist[methodlist.index(method)]
           top(odds_dict[method], investment_dict[method], method)
