@@ -229,14 +229,14 @@ def save_investment_data(time_now,investment,odds):
         if investment_dict[method].empty:
             # Initialize the DataFrame with the correct number of columns
             investment_dict[method] = pd.DataFrame(columns=np.arange(1, len(odds[method]) + 1))
-        investment_df = [round(investments[method][0] * 0.825 / 1000 / odd, 2) for odd in odds[method]]
+        investment_df = [round(investments[method][0] / 1000 / odd, 2) for odd in odds[method]]
         investment_dict[method].loc[time_now] = investment_df
       elif method in ['QIN','QPL',"FCT","TRI","FF"]:
         if odds[method]:
           combination, odds_array = zip(*odds[method])
           if investment_dict[method].empty:
             investment_dict[method] = pd.DataFrame(columns=combination)
-          investment_df = [round(investments[method][0] * 0.825 / 1000 / odd, 2) for odd in odds_array]
+          investment_df = [round(investments[method][0]  / 1000 / odd, 2) for odd in odds_array]
               # Set the values with the specified index
           investment_dict[method].loc[time_now] = investment_df
   #st.write(investment_dict)
@@ -433,7 +433,7 @@ def weird_data(investments):
       continue
     latest_investment = investment_dict[method].tail(1).values
     last_time_odds = odds_dict[method].tail(2).head(1)
-    expected_investment = investments[method][0]*0.825 / 1000 / last_time_odds
+    expected_investment = investments[method][0] / 1000 / last_time_odds
     diff = round(latest_investment - expected_investment,0)
     if method in ['WIN','PLA']:
         diff_dict[method] = diff_dict[method]._append(diff)
@@ -696,7 +696,7 @@ with infoColumns[2]:
 # Initialize lists (using list2 and list2_ch as default; change to list1 and list1_ch if preferred)
 available_methods = ['WIN', 'PLA', 'QIN', 'QPL', 'FCT', 'TRI', 'FF']
 available_methods_ch = ['獨贏', '位置', '連贏', '位置Q', '二重彩', '單T', '四連環']
-print_list_default = ['WIN','PLA','QIN','QPL']
+print_list_default = ['QIN']
 default_checked_methods = ['WIN','QIN']
 # Initialize session state variables
 if 'reset' not in st.session_state:
