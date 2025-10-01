@@ -624,9 +624,9 @@ def top(method_odds_df, method_investment_df, method):
 
       if method in ["QIN","QPL","FCT","TRI","FF"]:
         if method in ["QIN"]:
-          notice_df = final_df[(final_df['一分鐘投注'] >= 100) | (final_df['三分鐘投注'] >= 500)][['組合', '賠率', '一分鐘投注', '三分鐘投注']]
+          notice_df = final_df[(final_df['一分鐘投注'] >= 100) | (final_df['三分鐘投注'] >= 300)][['組合', '賠率', '一分鐘投注', '三分鐘投注']]
         elif method in ["QPL"]:
-          notice_df = final_df[(final_df['一分鐘投注'] >= 200) | (final_df['三分鐘投注'] >= 700)][['組合', '賠率', '一分鐘投注', '三分鐘投注']]
+          notice_df = final_df[(final_df['一分鐘投注'] >= 200) | (final_df['三分鐘投注'] >= 600)][['組合', '賠率', '一分鐘投注', '三分鐘投注']]
         elif method in ["FCT"]:
           notice_df = final_df[(final_df['一分鐘投注'] >= 10) | (final_df['三分鐘投注'] >= 30)][['組合', '賠率', '一分鐘投注', '三分鐘投注']]
         else:
