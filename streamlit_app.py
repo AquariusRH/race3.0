@@ -557,7 +557,7 @@ def top(method_odds_df, method_investment_df, method):
     second_last_row_investment = method_investment_df.iloc[second_last_row_index]
     second_last_row_investment_df = second_last_row_investment.to_frame(name='Investment').reset_index()
     second_last_row_investment_df.columns = ['Combination', 'Investment']
-    third_last_row_index = max(-len(method_investment_df), -11)
+    third_last_row_index = max(-len(method_investment_df), -7)
     third_last_row_investment = method_investment_df.iloc[third_last_row_index]
     third_last_row_investment_df = third_last_row_investment.to_frame(name='Investment').reset_index()
     third_last_row_investment_df.columns = ['Combination', 'Investment']
@@ -578,7 +578,7 @@ def top(method_odds_df, method_investment_df, method):
     final_df = final_df.merge(third_last_row_investment_df[['Combination', 'Previous_Investment_Change']], on='Combination', how='left')
 
     if method in ['WIN','PLA']:
-      final_df.columns = ['馬匹', '賠率', '最初賠率', '排名', '最初排名', '上一次排名', '投注變化', '投注', '一分鐘投注','五分鐘投注']
+      final_df.columns = ['馬匹', '賠率', '最初賠率', '排名', '最初排名', '上一次排名', '投注變化', '投注', '一分鐘投注','三分鐘投注']
       target_df = final_df
       rows_with_plus = target_df[
           target_df['最初排名'].astype(str).str.contains('\+') |
@@ -591,8 +591,8 @@ def top(method_odds_df, method_investment_df, method):
         '投注變化': '{:.2f}k',
         '投注': '{:.2f}k',
         '一分鐘投注': '{:.2f}k',
-        '五分鐘投注': '{:.2f}k'
-      }).map(highlight_change, subset=['最初排名', '上一次排名']).bar(subset=['投注變化', '一分鐘投注','五分鐘投注'], color='rgba(173, 216, 230, 0.5)').hide(axis='index')
+        '三分鐘投注': '{:.2f}k'
+      }).map(highlight_change, subset=['最初排名', '上一次排名']).bar(subset=['投注變化', '一分鐘投注','三分鐘投注'], color='rgba(173, 216, 230, 0.5)').hide(axis='index')
       styled_rows_with_plus = rows_with_plus.style.format({'賠率': '{:.1f}'}).map(highlight_change, subset=['最初排名', '上一次排名']).hide(axis='index')
       # Display the styled DataFrame
       st.write(styled_df.to_html(), unsafe_allow_html=True)
@@ -600,7 +600,7 @@ def top(method_odds_df, method_investment_df, method):
 
 
     else:
-      final_df.columns = ['組合', '賠率', '最初賠率', '排名', '最初排名', '上一次排名', '投注變化', '投注', '一分鐘投注','五分鐘投注']
+      final_df.columns = ['組合', '賠率', '最初賠率', '排名', '最初排名', '上一次排名', '投注變化', '投注', '一分鐘投注','三分鐘投注']
       target_df = final_df.head(15)
       target_special_df = final_df.head(30)
       rows_with_plus = target_special_df[
@@ -616,22 +616,22 @@ def top(method_odds_df, method_investment_df, method):
         '投注變化': '{:.2f}k',
         '投注': '{:.2f}k',
         '一分鐘投注': '{:.2f}k',
-        '五分鐘投注': '{:.2f}k'
-      }).map(highlight_change, subset=['最初排名', '上一次排名']).bar(subset=['投注變化', '一分鐘投注','五分鐘投注'], color='rgba(173, 216, 230, 0.5)').hide(axis='index')
+        '三分鐘投注': '{:.2f}k'
+      }).map(highlight_change, subset=['最初排名', '上一次排名']).bar(subset=['投注變化', '一分鐘投注','三分鐘投注'], color='rgba(173, 216, 230, 0.5)').hide(axis='index')
       styled_rows_with_plus = rows_with_plus.style.format({'賠率': '{:.1f}'}).map(highlight_change, subset=['最初排名', '上一次排名']).hide(axis='index')
       # Display the styled DataFrame
       st.write(styled_df.to_html(), unsafe_allow_html=True)
 
       if method in ["QIN","QPL","FCT","TRI","FF"]:
         if method in ["QIN"]:
-          notice_df = final_df[(final_df['一分鐘投注'] >= 100) | (final_df['五分鐘投注'] >= 500)][['組合', '賠率', '一分鐘投注', '五分鐘投注']]
+          notice_df = final_df[(final_df['一分鐘投注'] >= 100) | (final_df['三分鐘投注'] >= 500)][['組合', '賠率', '一分鐘投注', '三分鐘投注']]
         elif method in ["QPL"]:
-          notice_df = final_df[(final_df['一分鐘投注'] >= 200) | (final_df['五分鐘投注'] >= 700)][['組合', '賠率', '一分鐘投注', '五分鐘投注']]
+          notice_df = final_df[(final_df['一分鐘投注'] >= 200) | (final_df['三分鐘投注'] >= 700)][['組合', '賠率', '一分鐘投注', '三分鐘投注']]
         elif method in ["FCT"]:
-          notice_df = final_df[(final_df['一分鐘投注'] >= 10) | (final_df['五分鐘投注'] >= 30)][['組合', '賠率', '一分鐘投注', '五分鐘投注']]
+          notice_df = final_df[(final_df['一分鐘投注'] >= 10) | (final_df['三分鐘投注'] >= 30)][['組合', '賠率', '一分鐘投注', '三分鐘投注']]
         else:
-          notice_df = final_df[(final_df['一分鐘投注'] >= 5) | (final_df['五分鐘投注'] >= 15)][['組合', '賠率', '一分鐘投注', '五分鐘投注']]
-        styled_notice_df = notice_df.style.format({'賠率': '{:.1f}','一分鐘投注': '{:.2f}k','五分鐘投注': '{:.2f}k'}).bar(subset=['一分鐘投注','五分鐘投注'], color='rgba(173, 216, 230, 0.5)').hide(axis='index')
+          notice_df = final_df[(final_df['一分鐘投注'] >= 5) | (final_df['三分鐘投注'] >= 15)][['組合', '賠率', '一分鐘投注', '三分鐘投注']]
+        styled_notice_df = notice_df.style.format({'賠率': '{:.1f}','一分鐘投注': '{:.2f}k','三分鐘投注': '{:.2f}k'}).bar(subset=['一分鐘投注','三分鐘投注'], color='rgba(173, 216, 230, 0.5)').hide(axis='index')
         
 
       col1, col2 = st.columns(2)
