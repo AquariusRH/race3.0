@@ -17,7 +17,7 @@ from warnings import simplefilter
 simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 # Show the page title and description.
 st.set_page_config(page_title="Jockey Race")
-st.title("Jockey Race 賽馬程式 (動量)")
+st.title("Jockey Race 賽馬程式 (泡泡)")
 # ==================== 永久儲存模組 ====================
 
 DATA_FILE = "race_data.json"
@@ -1085,9 +1085,9 @@ def main(time_now,odds,investments,period):
   change_overall(time_now)
   print_bar_chart(time_now)
   print_bubble()
-  print_top()
-  print_ucb()
-  print_momentum()
+  #print_top()
+  #print_ucb()
+  #print_momentum()
 # --- 輸入 ---
 infoColumns = st.columns(3)
 with infoColumns[0]:
