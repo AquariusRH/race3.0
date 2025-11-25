@@ -1074,6 +1074,8 @@ def print_bubble():
             font=dict(family="Microsoft JhengHei", size=14),
             xaxis=dict(tickformat=",", zeroline=True),
             yaxis=dict(tickformat=",", zeroline=True),
+            dragmode=False,                    
+            static_plot=True
         )
         st.plotly_chart(fig, use_container_width=True, key=f"{total_volume_raw.index.astype(str)} {method}")  
         
