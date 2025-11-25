@@ -1086,7 +1086,7 @@ def main(time_now,odds,investments,period):
   change_overall(time_now)
   print_bar_chart(time_now)
   print_bubble()
-  #print_top()
+  print_top()
   #print_ucb()
   #print_momentum()
 # --- 輸入 ---
