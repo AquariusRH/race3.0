@@ -1045,7 +1045,7 @@ def print_bubble():
                 sizeref=2.*max_bubble/(100**2),  # 3. 讓最大氣泡剛好是你設的 100（下面會解釋）
                 opacity=0.78,                  # 4. 透明度（讓重疊時有層次）
                 color=df_plot['ΔI'],
-                colorscale='Redblue',
+                colorscale='Bluered',
                 reversescale=True,
                 line=dict(width=2.5, color='white'),   # 5. 白色邊框 → 經典氣泡質感
                 symbol='circle',               # 6. 強制圓形（預防被改）
