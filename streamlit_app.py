@@ -1060,8 +1060,8 @@ def print_bubble():
 
 
         # 四象限線
-        fig.add_hline(y=0, line_color="black", line_width=1.5)
-        fig.add_vline(x=0, line_color="black", line_width=1.5)
+        fig.add_hline(y=0, line_color="lightgrey", line_width=1.5)
+        fig.add_vline(x=0, line_color="lightgrey", line_width=1.5)
 
         fig.update_layout(
             title=f"{method}氣泡圖",
