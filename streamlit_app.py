@@ -1038,7 +1038,7 @@ def print_bubble():
             mode='markers+text',
             text=df['horse'][df['visible']],
             textposition="middle center",
-            textfont=dict(color="white", size=14, family="Arial Black", weight="bold"),
+            textfont=dict(color="black", size=18, family="Arial Black", weight="bold"),
             marker=dict(
                 size=df_plot['bubble'],          # 1. 氣泡大小（20~100）
                 sizemode='area',               # 2. 超重要！面積比例（才是真氣泡感）
