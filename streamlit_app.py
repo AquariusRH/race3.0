@@ -1038,14 +1038,14 @@ def print_bubble():
             mode='markers+text',
             text=df['horse'][df['visible']],
             textposition="middle center",
-            textfont=dict(color="lightgrey", size=22, family="Arial Black", weight="bold"),
+            textfont=dict(color="white", size=22, family="Arial Black", weight="bold"),
             marker=dict(
                 size=df_plot['bubble'],          # 1. 氣泡大小（20~100）
                 sizemode='area',               # 2. 超重要！面積比例（才是真氣泡感）
                 sizeref=2.*max_bubble/(100**2),  # 3. 讓最大氣泡剛好是你設的 100（下面會解釋）
                 opacity=0.78,                  # 4. 透明度（讓重疊時有層次）
                 color=df_plot['ΔI'],
-                colorscale='RdBu',
+                colorscale='Bluered',
                 reversescale=True,
                 line=dict(width=2.5, color='white'),   # 5. 白色邊框 → 經典氣泡質感
                 symbol='circle',               # 6. 強制圓形（預防被改）
