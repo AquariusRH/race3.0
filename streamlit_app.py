@@ -1098,8 +1098,6 @@ def print_bubble():
             dragmode=False
         )
         st.plotly_chart(fig, use_container_width=True, key=f"{total_volume_raw.index.astype(str)} {method}")  
-        st.write(delta_I)
-        st.write(df_plot)
         
 def main(time_now,odds,investments,period):
   save_odds_data(time_now,odds)
