@@ -1089,7 +1089,7 @@ def print_bubble():
             xaxis_title=f"{method_name[0]}（K）",
             yaxis_title=f"{method_name[1]}（K）",
             template="plotly_white",
-            height=720,
+            height=600,
             width=900,
             showlegend=False,
             font=dict(family="Microsoft JhengHei", size=14),
