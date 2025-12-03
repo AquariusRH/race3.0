@@ -1085,7 +1085,7 @@ def print_bubble():
         fig.add_vline(x=0, line_color="lightgrey", line_width=1.5)
 
         fig.update_layout(
-            title=f"{method}氣泡圖 |  {time_str}",
+            title=f"{method}氣泡圖 | 第{race_no}場 | {time_str}",
             xaxis_title=f"{method_name[0]}（K）",
             yaxis_title=f"{method_name[1]}（K）",
             template="plotly_white",
