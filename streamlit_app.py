@@ -1026,7 +1026,7 @@ def print_bubble():
 
         # 氣泡大小正規化（20 ~ 100）
         raw_size = df_plot['總投注量']
-        bubble_size = 20 + (raw_size - raw_size.min()) / (raw_size.max() - raw_size.min() + 1e-6) * 40
+        bubble_size = 20 + (raw_size - raw_size.min()) / (raw_size.max() - raw_size.min() + 1e-6) * 80
         df_plot['bubble'] = bubble_size
         max_bubble = bubble_size.max()
         # 5. 畫圖（退賽馬完全不會出現）
@@ -1042,7 +1042,7 @@ def print_bubble():
             marker=dict(
                 size=df_plot['bubble'],          # 1. 氣泡大小（20~100）
                 sizemode='area',               # 2. 超重要！面積比例（才是真氣泡感）
-                sizeref=2.*max_bubble/(100**2),  # 3. 讓最大氣泡剛好是你設的 100（下面會解釋）
+                sizeref=2.*max_bubble/(60**2),  # 3. 讓最大氣泡剛好是你設的 100（下面會解釋）
                 opacity=0.78,                  # 4. 透明度（讓重疊時有層次）
                 color=df_plot['ΔI'],
                 colorscale='Bluered_r',
@@ -1089,7 +1089,7 @@ def print_bubble():
             xaxis_title=f"{method_name[0]}（K）",
             yaxis_title=f"{method_name[1]}（K）",
             template="plotly_white",
-            height=600,
+            height=500,
             showlegend=False,
             font=dict(family="Microsoft JhengHei", size=14),
             xaxis=dict(tickformat=",", zeroline=True),
