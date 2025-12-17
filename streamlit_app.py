@@ -1026,7 +1026,7 @@ def print_bubble():
 
         # 氣泡大小正規化（20 ~ 100）
         raw_size = df_plot['總投注量']
-        bubble_size = 20 + (raw_size - raw_size.min()) / (raw_size.max() - raw_size.min() + 1e-6) * 80
+        bubble_size = 20 + (raw_size - raw_size.min()) / (raw_size.max() - raw_size.min() + 1e-6) * 40
         df_plot['bubble'] = bubble_size
         max_bubble = bubble_size.max()
         # 5. 畫圖（退賽馬完全不會出現）
